@@ -1,0 +1,176 @@
+-- DROP Statements with Error Handling
+DO $$ BEGIN
+    -- Drop triggers
+    IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'user_update_trigger') THEN
+        EXECUTE 'DROP TRIGGER user_update_trigger ON "User";';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'device_usage_audit_trigger') THEN
+        EXECUTE 'DROP TRIGGER device_usage_audit_trigger ON "Device";';
+    END IF;
+
+    -- Drop sequences (automatically handles dependencies via CASCADE)
+    IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'user_id_seq') THEN
+        EXECUTE 'DROP SEQUENCE user_id_seq CASCADE;';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'command_id_seq') THEN
+        EXECUTE 'DROP SEQUENCE command_id_seq CASCADE;';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'device_id_seq') THEN
+        EXECUTE 'DROP SEQUENCE device_id_seq CASCADE;';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'skill_id_seq') THEN
+        EXECUTE 'DROP SEQUENCE skill_id_seq CASCADE;';
+    END IF;
+
+    -- Drop views and audit tables
+    IF EXISTS (SELECT 1 FROM information_schema.views WHERE table_name = 'userdevices') THEN
+        EXECUTE 'DROP VIEW userdevices;';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'UserAuditLog') THEN
+        EXECUTE 'DROP TABLE UserAuditLog;';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'DeviceUsageAudit') THEN
+        EXECUTE 'DROP TABLE DeviceUsageAudit;';
+    END IF;
+
+    -- Drop remaining tables
+    EXECUTE 'DROP TABLE IF EXISTS "UserSkill", "DeviceCommand", "SkillUsage", "Interaction", "Device", "VoiceCommand", "Skill", "User" CASCADE;';
+END $$;
+
+-- Recreate Sequences
+CREATE SEQUENCE IF NOT EXISTS user_id_seq START 100 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS command_id_seq START 200 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS device_id_seq START 300 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS skill_id_seq START 400 INCREMENT 1;
+
+-- Recreate Tables
+CREATE TABLE IF NOT EXISTS "User" (
+    UserID INT DEFAULT NEXTVAL('user_id_seq') PRIMARY KEY,
+    Name VARCHAR(100),
+    Email VARCHAR(100) UNIQUE,
+    RegistrationDate DATE,
+    DeviceType VARCHAR(50),
+    Location VARCHAR(100)
+);
+
+CREATE TABLE IF NOT EXISTS "Device" (
+    DeviceID INT DEFAULT NEXTVAL('device_id_seq') PRIMARY KEY,
+    DeviceName VARCHAR(100),
+    DeviceModel VARCHAR(50),
+    UserID INT NOT NULL,
+    LastUsed TIMESTAMP,
+    PurchaseDate DATE,
+    CONSTRAINT fk_user_device FOREIGN KEY (UserID) REFERENCES "User" (UserID) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS "VoiceCommand" (
+    CommandID INT DEFAULT NEXTVAL('command_id_seq') PRIMARY KEY,
+    CommandText VARCHAR(255),
+    Timestamp TIMESTAMP,
+    ResponseTime INTEGER,
+    SuccessStatus VARCHAR(50),
+    VoiceProfile VARCHAR(50),
+    UserID INT NOT NULL,
+    CONSTRAINT fk_user FOREIGN KEY (UserID) REFERENCES "User" (UserID) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS "Skill" (
+    SkillID INT DEFAULT NEXTVAL('skill_id_seq') PRIMARY KEY,
+    SkillName VARCHAR(100),
+    SkillCategory VARCHAR(50),
+    LaunchCount INT,
+    UserRating FLOAT,
+    Developer VARCHAR(100)
+);
+
+CREATE TABLE IF NOT EXISTS "Interaction" (
+    InteractionID SERIAL PRIMARY KEY,
+    UserID INT NOT NULL,
+    CommandID INT NOT NULL,
+    SkillID INT,
+    Duration INTEGER,
+    InteractionDate DATE,
+    CONSTRAINT fk_command FOREIGN KEY (CommandID) REFERENCES "VoiceCommand" (CommandID) ON DELETE CASCADE,
+    CONSTRAINT fk_user_interaction FOREIGN KEY (UserID) REFERENCES "User" (UserID) ON DELETE CASCADE,
+    CONSTRAINT fk_skill FOREIGN KEY (SkillID) REFERENCES "Skill" (SkillID) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS "UserSkill" (
+    UserID INT NOT NULL,
+    SkillID INT NOT NULL,
+    DateEnabled DATE,
+    PRIMARY KEY (UserID, SkillID),
+    CONSTRAINT fk_user_skill FOREIGN KEY (UserID) REFERENCES "User" (UserID) ON DELETE CASCADE,
+    CONSTRAINT fk_skill_user FOREIGN KEY (SkillID) REFERENCES "Skill" (SkillID) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS "DeviceCommand" (
+    DeviceID INT NOT NULL,
+    CommandID INT NOT NULL,
+    UsageCount INT,
+    PRIMARY KEY (DeviceID, CommandID),
+    CONSTRAINT fk_device FOREIGN KEY (DeviceID) REFERENCES "Device" (DeviceID) ON DELETE CASCADE,
+    CONSTRAINT fk_command_device FOREIGN KEY (CommandID) REFERENCES "VoiceCommand" (CommandID) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS "SkillUsage" (
+    SkillID INT NOT NULL,
+    InteractionID INT NOT NULL,
+    UsageFrequency INT,
+    PRIMARY KEY (SkillID, InteractionID),
+    CONSTRAINT fk_skill_usage FOREIGN KEY (SkillID) REFERENCES "Skill" (SkillID) ON DELETE CASCADE,
+    CONSTRAINT fk_interaction_skill FOREIGN KEY (InteractionID) REFERENCES "Interaction" (InteractionID) ON DELETE CASCADE
+);
+
+-- Recreate Audit Tables
+CREATE TABLE IF NOT EXISTS UserAuditLog (
+    AuditID SERIAL PRIMARY KEY,
+    UserID INT NOT NULL,
+    OldName VARCHAR(100),
+    NewName VARCHAR(100),
+    UpdateTimestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS DeviceUsageAudit (
+    AuditID SERIAL PRIMARY KEY,
+    DeviceID INT NOT NULL,
+    UserID INT,
+    OldLastUsed TIMESTAMP,
+    NewLastUsed TIMESTAMP,
+    ChangeTimestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Recreate Triggers
+CREATE OR REPLACE FUNCTION log_user_update()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO UserAuditLog (UserID, OldName, NewName)
+    VALUES (OLD.UserID, OLD.Name, NEW.Name);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER user_update_trigger
+AFTER UPDATE ON "User"
+FOR EACH ROW
+EXECUTE FUNCTION log_user_update();
+
+CREATE OR REPLACE FUNCTION log_device_usage()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO DeviceUsageAudit (DeviceID, UserID, OldLastUsed, NewLastUsed)
+    VALUES (OLD.DeviceID, OLD.UserID, OLD.LastUsed, NEW.LastUsed);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER device_usage_audit_trigger
+AFTER UPDATE OF LastUsed ON "Device"
+FOR EACH ROW
+EXECUTE FUNCTION log_device_usage();

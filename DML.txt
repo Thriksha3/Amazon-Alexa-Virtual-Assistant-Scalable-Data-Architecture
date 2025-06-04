@@ -1,0 +1,157 @@
+-- Recreate View
+CREATE OR REPLACE VIEW userdevices AS
+SELECT u.Name, u.Email, u.DeviceType, u.Location, d.DeviceName, d.DeviceModel
+FROM "User" u
+JOIN "Device" d ON u.UserID = d.UserID;
+
+
+delete from "Device";
+delete from "DeviceCommand";
+delete from "Interaction";
+delete from "Skill";
+delete from "SkillUsage";
+delete from "User";
+delete from "UserSkill";
+delete from "VoiceCommand";
+delete from "deviceusageaudit";
+delete from "userauditlog";
+
+
+-- Insert 10 values into the User table (without specifying UserID)
+INSERT INTO "User" (Name, Email, RegistrationDate, DeviceType, Location)
+VALUES
+    ('John Doe', 'john.doe@example.com', '2023-01-01', 'Smartphone', 'New York'),
+    ('Jane Smith', 'jane.smith@example.com', '2023-02-15', 'Tablet', 'Los Angeles'),
+    ('Alice Johnson', 'alice.johnson@example.com', '2023-03-20', 'Laptop', 'Chicago'),
+    ('Bob Brown', 'bob.brown@example.com', '2023-04-10', 'Smartwatch', 'Houston'),
+    ('Charlie Davis', 'charlie.davis@example.com', '2023-05-22', 'Smartphone', 'San Francisco'),
+    ('David Wilson', 'david.wilson@example.com', '2023-06-05', 'Tablet', 'Dallas'),
+    ('Eve Martinez', 'eve.martinez@example.com', '2023-07-12', 'Laptop', 'Seattle'),
+    ('Frank White', 'frank.white@example.com', '2023-08-01', 'Smartwatch', 'Boston'),
+    ('Grace Lee', 'grace.lee@example.com', '2023-09-18', 'Smartphone', 'Austin'),
+    ('Hank Moore', 'hank.moore@example.com', '2023-10-25', 'Tablet', 'Denver');
+
+
+-- Insert 10 values into the Device table
+INSERT INTO "Device" (DeviceName, DeviceModel, UserID, LastUsed, PurchaseDate)
+VALUES
+    ('iPhone 14', 'Smartphone', 121, '2023-12-01', '2023-01-01'),
+    ('iPad Pro', 'Tablet', 122, '2023-12-01', '2023-02-15'),
+    ('MacBook Pro', 'Laptop', 123, '2023-12-01', '2023-03-20'),
+    ('Apple Watch', 'Smartwatch', 124, '2023-12-01', '2023-04-10'),
+    ('Samsung Galaxy S22', 'Smartphone', 125, '2023-12-01', '2023-05-22'),
+    ('Galaxy Tab S8', 'Tablet', 126, '2023-12-01', '2023-06-05'),
+    ('Dell XPS 13', 'Laptop', 127, '2023-12-01', '2023-07-12'),
+    ('Garmin Venu', 'Smartwatch', 128, '2023-12-01', '2023-08-01'),
+    ('Google Pixel 6', 'Smartphone', 129, '2023-12-01', '2023-09-18'),
+    ('Samsung Galaxy Tab A8', 'Tablet', 130, '2023-12-01', '2023-10-25');
+
+
+
+-- Insert 10 values into the VoiceCommand table
+INSERT INTO "VoiceCommand" (CommandText, Timestamp, ResponseTime, SuccessStatus, VoiceProfile, UserID)
+VALUES
+    ('Play music', '2023-12-01 10:00:00', 200, 'Success', 'Default', 121),
+    ('Set alarm', '2023-12-01 10:05:00', 150, 'Success', 'Default', 122),
+    ('Open browser', '2023-12-01 10:10:00', 180, 'Success', 'Default', 123),
+    ('Start workout', '2023-12-01 10:15:00', 160, 'Success', 'Default', 124),
+    ('Send message', '2023-12-01 10:20:00', 140, 'Success', 'Default', 125),
+    ('Read email', '2023-12-01 10:25:00', 220, 'Success', 'Default', 126),
+    ('Turn on light', '2023-12-01 10:30:00', 190, 'Success', 'Default', 127),
+    ('Set timer', '2023-12-01 10:35:00', 170, 'Success', 'Default', 128),
+    ('Make a call', '2023-12-01 10:40:00', 180, 'Success', 'Default', 129),
+    ('Search news', '2023-12-01 10:45:00', 200, 'Success', 'Default', 130);
+
+
+-- Insert 10 values into the Skill table
+INSERT INTO "Skill" (SkillName, SkillCategory, LaunchCount, UserRating, Developer)
+VALUES
+    ('Spotify Music', 'Entertainment', 50, 4.5, 'Spotify'),
+    ('Google Assistant', 'Utility', 100, 4.7, 'Google'),
+    ('Apple Siri', 'Utility', 80, 4.6, 'Apple'),
+    ('Fitness Tracker', 'Health', 30, 4.4, 'Garmin'),
+    ('Netflix', 'Entertainment', 120, 4.8, 'Netflix'),
+    ('Amazon Alexa', 'Utility', 150, 4.9, 'Amazon'),
+    ('Zoom', 'Communication', 70, 4.6, 'Zoom Video Communications'),
+    ('WhatsApp', 'Communication', 110, 4.7, 'Meta'),
+    ('Google Maps', 'Navigation', 200, 4.9, 'Google'),
+    ('Slack', 'Communication', 40, 4.5, 'Slack Technologies');
+
+
+
+
+INSERT INTO "Interaction" (InteractionID, UserID, CommandID, Duration, InteractionDate)
+VALUES
+    (1, 121, 230, 5, '2023-12-01'),
+    (2, 122, 231, 4, '2023-12-01'),
+    (3, 123, 232, 6, '2023-12-01'),
+    (4, 124, 233, 5, '2023-12-01'),
+    (5, 125, 234, 7, '2023-12-01'),
+    (6, 126, 235, 8, '2023-12-01'),
+    (7, 127, 236, 3, '2023-12-01'),
+    (8, 128, 237, 9, '2023-12-01'),
+    (9, 129, 238, 6, '2023-12-01'),
+    (10, 130, 239, 4, '2023-12-01');
+
+
+-- Insert values into the UserSkill table
+INSERT INTO "UserSkill" (UserID, SkillID, DateEnabled)
+VALUES
+    (121, 410, '2023-01-01'),
+    (122, 411, '2023-02-15'),
+    (123, 412, '2023-03-20'),
+    (124, 413, '2023-04-10'),
+    (125, 414, '2023-05-22'),
+    (126, 415, '2023-06-05'),
+    (127, 416, '2023-07-12'),
+    (128, 417, '2023-08-01'),
+    (129, 418, '2023-09-18'),
+    (130, 419, '2023-10-25');
+
+-- Insert values into the DeviceCommand table
+INSERT INTO "DeviceCommand" (DeviceID, CommandID, UsageCount)
+VALUES
+    (345, 230, 10),
+    (346, 231, 5),
+    (347, 232, 12),
+    (348, 233, 8),
+    (349, 234, 7),
+    (350, 235, 15),
+    (351, 236, 9),
+    (352, 237, 6),
+    (353, 238, 4),
+    (354, 239, 14);
+
+
+-- Insert values into the SkillUsage table
+INSERT INTO "SkillUsage" (SkillID, InteractionID, UsageFrequency)
+VALUES
+    (410, 1, 3),
+    (411, 2, 5),
+    (412, 3, 2),
+    (413, 4, 4),
+    (414, 5, 6),
+    (415, 6, 7),
+    (416, 7, 8),
+    (417, 8, 1),
+    (418, 9, 3),
+    (419, 10, 5);
+
+
+
+CREATE VIEW "UserDeviceInfoView" AS
+SELECT 
+    u.UserID,
+    u.Name AS UserName,
+    u.Email,
+    u.DeviceType,
+    u.Location,
+    u.RegistrationDate,
+    d.DeviceID,
+    d.DeviceName,
+    d.DeviceModel,
+    d.LastUsed,
+    d.PurchaseDate
+FROM "User" u
+JOIN "Device" d ON u.UserID = d.UserID;
+
